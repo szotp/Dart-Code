@@ -58,20 +58,21 @@ export class DevToolsManager implements vs.Disposable {
 		}
 		try {
 			const url = await this.devtoolsUrl;
+			const queryParams: { [key: string]: string } = {
+				hide: "debugger",
+				ide: "VSCode",
+				theme: config.useDevToolsDarkTheme ? "dark" : null,
+			};
+			const paramsString = Object.keys(queryParams)
+				.map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
+				.join("&");
+			const fullUrl = `${url}?${paramsString}&uri=${encodeURIComponent(session.vmServiceUri)}`;
+
 			const didLaunch = await vs.window.withProgress({
 				location: vs.ProgressLocation.Notification,
 				title: "Opening Dart DevTools...",
 			}, async (_) => {
-				const queryParams: { [key: string]: string } = {
-					hide: "debugger",
-					ide: "VSCode",
-					theme: config.useDevToolsDarkTheme ? "dark" : null,
-				};
 				if (!isRunningLocally) {
-					const paramsString = Object.keys(queryParams)
-						.map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
-						.join("&");
-					const fullUrl = `${url}?${paramsString}&uri=${encodeURIComponent(session.vmServiceUri)}`;
 					openInBrowser(fullUrl);
 				} else {
 					const canLaunchDevToolsThroughService = await waitFor(() => this.debugCommands.flutterExtensions.serviceIsRegistered(FlutterService.LaunchDevTools), 500);
@@ -109,6 +110,21 @@ export class DevToolsManager implements vs.Disposable {
 			});
 			if (!didLaunch)
 				return;
+
+			// TEMP ///////////
+			const panel = vs.window.createWebviewPanel(
+				"dartDevTools",
+				"Dart DevTools",
+				vs.ViewColumn.One,
+				{
+					enableScripts: true,
+					// localResourceRoots: [vs.Uri.file(path.join(this.extensionPath, "resources/devtools"))],
+					localResourceRoots: [],
+				},
+			);
+			panel.webview.html = `<iframe src="${fullUrl}" width="100%" height="900"></frame>`;
+			// TEMP ///////////
+
 			this.devToolsStatusBarItem.text = "Dart DevTools";
 			this.devToolsStatusBarItem.tooltip = `Dart DevTools is running at ${url}`;
 			this.devToolsStatusBarItem.command = "dart.openDevTools";
