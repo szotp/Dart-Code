@@ -10,26 +10,27 @@ import * as util from "../utils";
 import { getToolEnv } from "../utils/processes";
 
 export class PubBuildRunnerTaskProvider implements vs.TaskProvider {
-	constructor(private sdks: Sdks) { }
+	constructor(private readonly sdks: Sdks, private readonly type: "pub" | "flutter" = "pub") { }
 
 	public provideTasks(token?: vs.CancellationToken): vs.ProviderResult<vs.Task[]> {
 		const dartProjects = getDartWorkspaceFolders();
 
 		const tasks: vs.Task[] = [];
 		dartProjects.forEach((folder) => {
-			if (referencesBuildRunner(fsPath(folder.uri))) {
-				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "watch", vs.TaskGroup.Build));
-				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "build", vs.TaskGroup.Build));
-				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "serve", vs.TaskGroup.Build));
-				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "test", vs.TaskGroup.Test));
+			const isFlutter = !!(util.isFlutterWorkspaceFolder(folder) && this.sdks.flutter);
+			const shouldShow = isFlutter === (this.type === "flutter");
+			if (shouldShow && referencesBuildRunner(fsPath(folder.uri))) {
+				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "watch", vs.TaskGroup.Build, isFlutter));
+				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "build", vs.TaskGroup.Build, isFlutter));
+				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "serve", vs.TaskGroup.Build, isFlutter));
+				tasks.push(this.createBuildRunnerCommandBackgroundTask(folder, "test", vs.TaskGroup.Test, isFlutter));
 			}
 		});
 
 		return tasks;
 	}
 
-	private createBuildRunnerCommandBackgroundTask(folder: vs.WorkspaceFolder, subCommand: string, group: vs.TaskGroup) {
-		const isFlutter = util.isFlutterWorkspaceFolder(folder) && this.sdks.flutter;
+	private createBuildRunnerCommandBackgroundTask(folder: vs.WorkspaceFolder, subCommand: string, group: vs.TaskGroup, isFlutter: boolean) {
 		const type = isFlutter ? "flutter" : "pub";
 		const program = isFlutter ? path.join(this.sdks.flutter!, flutterPath) : path.join(this.sdks.dart!, pubPath);
 		const args = isFlutter ? ["pub", "run", "build_runner", subCommand] : ["run", "build_runner", subCommand];

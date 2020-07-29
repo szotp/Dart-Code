@@ -334,7 +334,10 @@ export async function activate(context: vs.ExtensionContext, isRestart: boolean 
 
 	// Task handlers.
 	if (config.previewBuildRunnerTasks) {
-		context.subscriptions.push(vs.tasks.registerTaskProvider("pub", new PubBuildRunnerTaskProvider(sdks)));
+		if (workspaceContext.hasAnyStandardDartProjects)
+			context.subscriptions.push(vs.tasks.registerTaskProvider("pub", new PubBuildRunnerTaskProvider(sdks)));
+		if (workspaceContext.hasAnyFlutterProjects)
+			context.subscriptions.push(vs.tasks.registerTaskProvider("flutter", new PubBuildRunnerTaskProvider(sdks, "flutter")));
 	}
 
 	// Snippets are language-specific
